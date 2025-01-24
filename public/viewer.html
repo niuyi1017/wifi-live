@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html>
   <head>
     <title>Receiver</title>
@@ -19,18 +18,46 @@
       const socket = io();
       const video = document.getElementById("remoteVideo");
 
-      const peer = new SimplePeer({ initiator: false });
+      let peer = new SimplePeer({ initiator: false });
 
       peer.on("signal", (data) => {
+        // console.log("Receiver signal:", data);
         socket.emit("signal", data);
       });
 
-      socket.on("signal", (data) => {
-        peer.signal(data);
-      });
+      setTimeout(() => {
+        socket.on("signal", (data) => {
+          if (peer.destroyed) {
+            // console.warn("Cannot signal after peer is destroyed");
+            return;
+          }
+          // console.log("Receiver received signal:", data);
+          peer.signal(data);
+        });
+      }, 1000);
 
       peer.on("stream", (stream) => {
+        console.log("Receiver stream:", stream);
         video.srcObject = stream;
+      });
+
+      peer.on("connect", () => {
+        console.log("Receiver connected");
+      });
+
+      peer.on("close", () => {
+        console.log("Receiver connection closed");
+        peer = null;
+      });
+
+      peer.on("error", (err) => {
+        console.error("Receiver error:", err);
+      });
+
+      window.addEventListener("beforeunload", () => {
+        if (peer) {
+          peer.destroy();
+        }
       });
     </script>
   </body>

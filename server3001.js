@@ -1,23 +1,23 @@
 const express = require('express');
-const https = require('https');
+const http = require('http');
 const fs = require('fs');
+const https = require('https');
 const socketIo = require('socket.io');
-const path = require('path');
 
 const app = express();
-const server = https.createServer({
-  key: fs.readFileSync('./key.pem'),
-  cert: fs.readFileSync('./cert.pem')
-}, app);
+const server = http.createServer(app);
+// const server = https.createServer({
+//   key: fs.readFileSync('key.pem'),
+//   cert: fs.readFileSync('cert.pem')
+// }, app);
 const io = socketIo(server);
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static('public'));
 
 io.on('connection', (socket) => {
   console.log('a user connected');
 
   socket.on('signal', (data) => {
-    console.log('Server received signal:', data);
     socket.broadcast.emit('signal', data);
   });
 
@@ -26,6 +26,6 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(3000, () => {
-  console.log('listening on *:3000');
+server.listen(3001, () => {
+  console.log('listening on *:3001');
 });
