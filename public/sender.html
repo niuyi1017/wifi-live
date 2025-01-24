@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Sender</title>
+    <style>
+      video {
+        width: 100px;
+        height: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Sender</h1>
+    <video id="localVideo" autoplay></video>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="./js/simplepeer.min.js"></script>
+    <script>
+      const socket = io();
+      const video = document.getElementById("localVideo");
+
+      navigator.mediaDevices
+        .getUserMedia({ video: true, audio: false })
+        .then((stream) => {
+          video.srcObject = stream;
+
+          const peer = new SimplePeer({ initiator: true, stream: stream });
+
+          peer.on("signal", (data) => {
+            socket.emit("signal", data);
+          });
+
+          socket.on("signal", (data) => {
+            peer.signal(data);
+          });
+        })
+        .catch((err) => {
+          console.error("Error accessing media devices.", err);
+        });
+    </script>
+  </body>
+</html>

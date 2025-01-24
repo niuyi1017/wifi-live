@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Receiver</title>
+    <style>
+      video {
+        width: 100px;
+        height: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Receiver</h1>
+    <video id="remoteVideo" autoplay></video>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="./js/simplepeer.min.js"></script>
+
+    <script>
+      const socket = io();
+      const video = document.getElementById("remoteVideo");
+
+      const peer = new SimplePeer({ initiator: false });
+
+      peer.on("signal", (data) => {
+        socket.emit("signal", data);
+      });
+
+      socket.on("signal", (data) => {
+        peer.signal(data);
+      });
+
+      peer.on("stream", (stream) => {
+        video.srcObject = stream;
+      });
+    </script>
+  </body>
+</html>
