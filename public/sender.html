@@ -16,6 +16,7 @@
     <button id="stopBtn">Stop</button>
     <button id="zoomInBtn">Zoom In</button>
     <button id="zoomOutBtn">Zoom Out</button>
+    <button id="switchCameraBtn">Switch Camera</button>
     <script src="/socket.io/socket.io.js"></script>
     <script src="./js/simplepeer.min.js"></script>
     <script>
@@ -25,33 +26,43 @@
       const stopBtn = document.querySelector("#stopBtn");
       const zoomInBtn = document.querySelector("#zoomInBtn");
       const zoomOutBtn = document.querySelector("#zoomOutBtn");
+      const switchCameraBtn = document.querySelector("#switchCameraBtn");
 
       let peer = null;
       let stream = null;
       let videoTrack = null;
       let zoomLevel = 1;
+      let currentDeviceId = null;
+      let videoDevices = [];
 
-      // 本地实时预览摄像头stream
-      navigator.mediaDevices
-        .getUserMedia({ video: true, audio: false })
-        .then((s) => {
-          stream = s;
-          video.srcObject = stream;
-          videoTrack = stream.getVideoTracks()[0];
-        })
-        .catch((err) => {
-          console.error("Error accessing media devices.", err);
-        });
+      const getVideoDevices = async () => {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        videoDevices = devices.filter((device) => device.kind === "videoinput");
+      };
 
-      // 点击按钮开始，开始推流
-      startBtn.addEventListener("click", () => {
-        if (!stream) {
-          console.error("No stream available.");
-          return;
+      const startStream = async (deviceId) => {
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
         }
 
-        startBtn.disabled = true;
-        peer = new SimplePeer({ initiator: true, stream: stream });
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: deviceId ? { exact: deviceId } : undefined },
+            audio: false,
+          });
+          video.srcObject = stream;
+          videoTrack = stream.getVideoTracks()[0];
+        } catch (err) {
+          console.error("Error accessing media devices.", err);
+        }
+      };
+
+      const initializePeer = (stream) => {
+        if (peer) {
+          peer.destroy();
+        }
+
+        peer = new SimplePeer({ initiator: true, stream });
 
         peer.on("signal", (data) => {
           socket.emit("signal", data);
@@ -65,9 +76,22 @@
           peer.signal(data);
         });
 
+        peer.on("connect", () => console.log("Sender connected"));
         peer.on("close", () => {
+          console.log("Sender connection closed");
           peer = null;
         });
+        peer.on("error", (err) => console.error("Sender error:", err));
+      };
+
+      startBtn.addEventListener("click", () => {
+        if (!stream) {
+          console.error("No stream available.");
+          return;
+        }
+
+        startBtn.disabled = true;
+        initializePeer(stream);
       });
 
       stopBtn.addEventListener("click", () => {
@@ -98,11 +122,40 @@
         }
       });
 
+      switchCameraBtn.addEventListener("click", () => {
+        if (videoDevices.length > 1) {
+          const currentIndex = videoDevices.findIndex(
+            (device) => device.deviceId === currentDeviceId
+          );
+          const nextIndex = (currentIndex + 1) % videoDevices.length;
+          currentDeviceId = videoDevices[nextIndex].deviceId;
+          startStream(currentDeviceId);
+        }
+      });
+
       window.addEventListener("beforeunload", () => {
         if (peer) {
           peer.destroy();
         }
       });
+
+      getVideoDevices()
+        .then(() => {
+          if (videoDevices.length > 0) {
+            const backCamera = videoDevices.find(
+              (device) =>
+                device.label.toLowerCase().includes("back") ||
+                device.label.toLowerCase().includes("rear")
+            );
+            currentDeviceId = backCamera
+              ? backCamera.deviceId
+              : videoDevices[0].deviceId;
+            startStream(currentDeviceId);
+          }
+        })
+        .catch((err) => {
+          console.error("Error getting video devices:", err);
+        });
     </script>
   </body>
 </html>
