@@ -11,48 +11,48 @@
   <body>
     <h1>Receiver</h1>
     <video id="remoteVideo" autoplay></video>
+
+    <button id="playBtn">play</button>
+
+    <p id="staus"></p>
+
     <script src="/socket.io/socket.io.js"></script>
     <script src="./js/simplepeer.min.js"></script>
 
     <script>
       const socket = io();
       const video = document.getElementById("remoteVideo");
+      const playBtn = document.querySelector("#playBtn");
+
+      const status = document.querySelector("#staus");
 
       let peer = new SimplePeer({ initiator: false });
 
       peer.on("signal", (data) => {
-        // console.log("Receiver signal:", data);
         socket.emit("signal", data);
       });
 
-      setTimeout(() => {
-        socket.on("signal", (data) => {
-          if (peer.destroyed) {
-            // console.warn("Cannot signal after peer is destroyed");
-            return;
-          }
-          // console.log("Receiver received signal:", data);
-          peer.signal(data);
+      socket.on("signal", (data) => {
+        if (peer.destroyed) {
+          return;
+        }
+        peer.signal(data);
+      });
+
+      playBtn.addEventListener("click", () => {
+        status.innerText = "waiting for stream";
+        playBtn.disabled = true;
+        peer.on("stream", (stream) => {
+          console.log("Receiver stream:", stream);
+          video.srcObject = stream;
+          status.innerText = "streaming";
         });
-      }, 1000);
-
-      peer.on("stream", (stream) => {
-        console.log("Receiver stream:", stream);
-        video.srcObject = stream;
       });
 
-      peer.on("connect", () => {
-        console.log("Receiver connected");
-      });
-
-      peer.on("close", () => {
-        console.log("Receiver connection closed");
-        peer = null;
-      });
-
-      peer.on("error", (err) => {
-        console.error("Receiver error:", err);
-      });
+      // peer.on("stream", (stream) => {
+      //   console.log("Receiver stream:", stream);
+      //   video.srcObject = stream;
+      // });
 
       window.addEventListener("beforeunload", () => {
         if (peer) {

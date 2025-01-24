@@ -12,55 +12,70 @@
   <body>
     <h1>Sender</h1>
     <video id="localVideo" autoplay></video>
+    <button id="startBtn">Start</button>
+    <button id="stopBtn">Stop</button>
     <script src="/socket.io/socket.io.js"></script>
     <script src="./js/simplepeer.min.js"></script>
     <script>
       const socket = io();
       const video = document.getElementById("localVideo");
+      const startBtn = document.querySelector("#startBtn");
+      const stopBtn = document.querySelector("#stopBtn");
 
+      let peer = null;
+      let stream = null;
+
+      // 本地实时预览摄像头stream
       navigator.mediaDevices
         .getUserMedia({ video: true, audio: false })
-        .then((stream) => {
+        .then((s) => {
+          stream = s;
           video.srcObject = stream;
-
-          let peer = new SimplePeer({ initiator: true, stream: stream });
-
-          peer.on("signal", (data) => {
-            console.log("Sender signal:", data);
-            socket.emit("signal", data);
-          });
-
-          socket.on("signal", (data) => {
-            if (peer.destroyed) {
-              console.warn("Cannot signal after peer is destroyed");
-              return;
-            }
-            console.log("Sender received signal:", data);
-            peer.signal(data);
-          });
-
-          peer.on("connect", () => {
-            console.log("Sender connected");
-          });
-
-          peer.on("close", () => {
-            console.log("Sender connection closed");
-            peer = null;
-          });
-
-          peer.on("error", (err) => {
-            console.error("Sender error:", err);
-          });
-
-          window.addEventListener("beforeunload", () => {
-            if (peer) {
-              peer.destroy();
-            }
-          });
         })
         .catch((err) => {
           console.error("Error accessing media devices.", err);
         });
+
+      // 点击按钮开始，开始推流
+      startBtn.addEventListener("click", () => {
+        if (!stream) {
+          console.error("No stream available.");
+          return;
+        }
+
+        startBtn.disabled = true;
+        peer = new SimplePeer({ initiator: true, stream: stream });
+
+        peer.on("signal", (data) => {
+          socket.emit("signal", data);
+        });
+
+        socket.on("signal", (data) => {
+          if (peer.destroyed) {
+            console.warn("Cannot signal after peer is destroyed");
+            return;
+          }
+          peer.signal(data);
+        });
+
+        peer.on("close", () => {
+          peer = null;
+        });
+      });
+
+      stopBtn.addEventListener("click", () => {
+        if (peer) {
+          peer.destroy();
+          peer = null;
+        }
+        startBtn.disabled = false;
+      });
+
+      window.addEventListener("beforeunload", () => {
+        if (peer) {
+          peer.destroy();
+        }
+      });
     </script>
   </body>
 </html>

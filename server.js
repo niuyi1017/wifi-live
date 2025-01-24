@@ -17,7 +17,6 @@ io.on('connection', (socket) => {
   console.log('a user connected');
 
   socket.on('signal', (data) => {
-    console.log('Server received signal:', data);
     socket.broadcast.emit('signal', data);
   });
 
